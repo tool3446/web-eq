@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Pro EQ Controller</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #121214;
+      --panel: #1c1c1e;
+      --panel-secondary: #2c2c2e;
+      --border: #3a3a3c;
+      --border-light: #48484a;
+      --text: #f5f5f7;
+      --text-muted: #8e8e93;
+      
+      /* Apple風の上品で洗練されたカラーパレット */
+      --accent: #0a84ff;       /* Apple Blue */
+      --accent-disabled: #3a3a3c;
+      --green: #30d158;        /* Apple Green */
+      --amber: #ffd60a;        /* Apple Yellow */
+      --red: #ff453a;          /* Apple Red */
+      --violet: #bf5af2;       /* Apple Purple */
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      display: grid;
+      place-items: center;
+      padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, select, input {
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+    }
+
+    /* メインコンテナ */
+    .eq-shell {
+      width: 100%;
+      max-width: 1040px;
+      background-color: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+    }
+
+    /* トップヘッダーバー */
+    .topbar {
+      height: 52px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 16px;
+      padding: 0 16px;
+      background-color: rgba(28, 28, 30, 0.8);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* 電源ボタン */
+    .power {
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--border-light);
+      border-radius: 50%;
+      color: var(--green);
+      background: transparent;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .power:hover {
+      background-color: rgba(48, 209, 88, 0.1);
+      border-color: var(--green);
+    }
+    .power.off {
+      color: var(--text-muted);
+      border-color: var(--border);
+    }
+    .power.off:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.2px;
+    }
+
+    /* プリセット・ファイルセクション */
+    .preset {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .preset select,
+    .file-input {
+      height: 30px;
+      color: var(--text);
+      background-color: var(--panel-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0 12px;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+    .preset select:hover,
+    .file-input:hover {
+      border-color: var(--border-light);
+    }
+    .preset select:focus {
+      border-color: var(--accent);
+    }
+
+    .file-input {
+      max-width: 240px;
+      font-size: 11px;
+      padding-top: 5px;
+    }
+
+    /* トランスポートボタン */
+    .transport {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-button {
+      height: 30px;
+      padding: 0 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      background-color: var(--panel-secondary);
+      cursor: pointer;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .icon-button:hover {
+      background-color: var(--border);
+    }
+    .icon-button:active {
+      transform: scale(0.98);
+    }
+
+    .monitor-button.active {
+      color: #fff;
+      background-color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* メインコンテンツエリア */
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 120px;
+      background-color: #0a0a0c;
+    }
+
+    /* グラフ周り */
+    .graph-wrap {
+      position: relative;
+      background-color: #101012;
+      border-right: 1px solid var(--border);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 400px;
+      touch-action: none;
+      outline: none;
+    }
+
+    .readout {
+      position: absolute;
+      left: 16px;
+      bottom: 12px;
+      right: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .pill {
+      background: rgba(28, 28, 30, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* 右側ボリュームメーター・マスターセクション */
+    .meter-panel {
+      background-color: var(--panel);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px 12px;
+    }
+
+    .meter-label {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      letter-spacing: -0.1px;
+    }
+
+    .meters {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      flex-grow: 1;
+      min-height: 200px;
+    }
+
+    .meter {
+      position: relative;
+      background-color: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .meter-fill {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 0%;
+      /* デフォルトカラー：0dB未満はCubase風の鮮やかなグリーン〜イエロー系 */
+      background: linear-gradient(to top, #2ce65e, #e6c82c 85%);
+      transition: height .05s linear;
+    }
+    
+    /* 0dBオーバー時（クリップ）に適用されるクラス */
+    .meter-fill.clip {
+      background: linear-gradient(to top, #2ce65e, #e6c82c 75%, var(--red));
+    }
+
+    .output {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .output input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .limit-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 4px;
+    }
+
+    .limit-toggle {
+      padding: 2px 8px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      background-color: var(--panel-secondary);
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .limit-toggle.active-on {
+      background-color: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .output .value {
+      font-size: 11px;
+      color: var(--text);
+      text-align: center;
+      font-weight: 500;
+    }
+
+    /* 下部：4つのバンド操作セクション */
+    .bands {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-top: 1px solid var(--border);
+      background-color: var(--panel);
+    }
+
+    .band {
+      border-right: 1px solid var(--border);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .band:last-child {
+      border-right: 0;
+    }
+
+    .band-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .band-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    /* シンプルなApple風スイッチトグル */
+    .band-toggle {
+      width: 36px;
+      height: 20px;
+      border-radius: 10px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      position: relative;
+      transition: background-color 0.2s ease;
+    }
+    .band-toggle::after {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 1px;
+      top: 1px;
+      border-radius: 50%;
+      background-color: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      transition: transform 0.2s ease;
+    }
+    .band-toggle.on {
+      background-color: var(--green);
+      border-color: var(--green);
+    }
+    .band-toggle.on::after {
+      transform: translateX(16px);
+    }
+
+    .type-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      align-items: center;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .type-row select {
+      height: 26px;
+      background-color: var(--panel-secondary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 0 4px;
+    }
+
+    .control-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .knob-cell {
+      display: grid;
+      grid-template-columns: 50px 1fr 55px;
+      align-items: center;
+      gap: 8px;
+    }
+    .knob-cell label {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .knob-cell .slider {
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background-color: rgba(255, 255, 255, 0.1);
+      accent-color: var(--knob-color);
+      cursor: pointer;
+    }
+    .knob-cell .value {
+      font-size: 11px;
+      color: var(--text);
+      text-align: right;
+      font-weight: 500;
+    }
+
+    /* 最下部ステータスバー */
+    .status {
+      padding: 8px 16px;
+      color: var(--text-muted);
+      font-size: 11px;
+      background-color: var(--panel-secondary);
+      border-top: 1px solid var(--border);
+    }
+
+    /* レスポンシブ設計 */
+    @media (max-width: 860px) {
+      body { padding: 12px; }
+      .topbar { grid-template-columns: 1fr; height: auto; padding: 12px; gap: 12px; }
+      .preset { flex-direction: column; align-items: stretch; width: 100%; }
+      .file-input { max-width: 100%; }
+      .transport { justify-content: center; width: 100%; }
+      .main { grid-template-columns: 1fr; }
+      .graph-wrap { border-right: 0; border-bottom: 1px solid var(--border); }
+      canvas { height: 300px; }
+      .meter-panel { flex-direction: row; align-items: center; justify-content: space-between; }
+      .meters { min-height: 40px; height: 40px; width: 140px; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; flex-grow: 0; }
+      .meter-fill { top: 0; bottom: 0; width: 0%; height: auto; background: linear-gradient(to right, #2ce65e, #e6c82c 85%); }
+      .meter-fill.clip { background: linear-gradient(to right, #2ce65e, #e6c82c 75%, var(--red)); }
+      .output { flex-direction: row; flex-grow: 1; align-items: center; justify-content: space-around; gap: 12px; }
+      .bands { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 540px) {
+      .bands { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <main class="eq-shell" aria-label="Professional Audio Equalizer">
+    <section class="topbar">
+      <div class="brand">
+        <button class="power" id="power" title="Bypass">⏻</button>
+        <div class="title">WEB EQ </div>
+      </div>
+      <div class="preset">
+        <select id="preset" title="Preset">
+          <option value="flat">Flat</option>
+          <option value="vocal">Vocal Presence</option>
+          <option value="bass">Tight Bass</option>
+          <option value="mix">Mix Polish</option>
+          <option value="air">Air Lift</option>
+          <option value="deepcut">Deep Cut Test</option>
+          <option value="telephone">Telephone Check</option>
+        </select>
+        <input class="file-input" id="file" type="file" accept="audio/*" title="Audio file">
+      </div>
+      <div class="transport">
+        <button class="icon-button monitor-button" id="monitor" title="PC audio monitor">Monitor</button>
+        <button class="icon-button" id="play" title="Play / Pause">Play</button>
+        <button class="icon-button" id="stop" title="Stop">Stop</button>
+      </div>
+    </section>
+
+    <section class="main">
+      <div class="graph-wrap">
+        <canvas id="graph" width="1280" height="588" tabindex="0"></canvas>
+        <div class="readout" id="readout"></div>
+      </div>
+      <aside class="meter-panel">
+        <div class="meter-label">OUTPUT</div>
+        <div class="meters">
+          <div class="meter"><div class="meter-fill" id="meterL"></div></div>
+          <div class="meter"><div class="meter-fill" id="meterR"></div></div>
+        </div>
+        <div class="output">
+          <div class="value-group">
+            <div class="limit-row">
+              <div class="meter-label">NORMALIZE</div>
+              <button class="limit-toggle" id="normalizeToggle">OFF</button>
+            </div>
+          </div>
+          <div class="value-group">
+            <div class="meter-label">SENSITIVITY</div>
+            <input id="eqSensitivity" type="range" min="1" max="3" step="0.1" value="1.8">
+            <div class="value" id="eqSensitivityText">x1.8</div>
+          </div>
+          <div class="value-group">
+            <div class="limit-row">
+              <div class="meter-label">LIMITER</div>
+              <button class="limit-toggle active-on" id="limiterToggle">ON</button>
+            </div>
+            <input id="limiterThreshold" type="range" min="-30" max="-3" step="1" value="-14">
+            <div class="value" id="limiterText">-14 dB</div>
+          </div>
+          <div class="value-group">
+            <div class="meter-label">GAIN</div>
+            <input id="outputGain" type="range" min="-24" max="12" step="0.1" value="0">
+            <div class="value" id="outputText">0.0 dB</div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="bands" id="bands"></section>
+    
+    <div class="status" id="status">Ready to load audio source...</div>
+  </main>
+
+  <script>
+    const colors = ["#0a84ff", "#30d158", "#ffd60a", "#bf5af2"];
+    const presets = {
+      flat: [
+        { on: true, type: "lowshelf", freq: 100, gain: 0, q: .7 },
+        { on: true, type: "peaking", freq: 450, gain: 0, q: 1 },
+        { on: true, type: "peaking", freq: 2200, gain: 0, q: 1 },
+        { on: true, type: "highshelf", freq: 9000, gain: 0, q: .7 }
+      ],
+      vocal: [
+        { on: true, type: "highpass", freq: 85, gain: 0, q: .8 },
+        { on: true, type: "peaking", freq: 280, gain: -2.5, q: 1.15 },
+        { on: true, type: "peaking", freq: 3200, gain: 3.2, q: 1.05 },
+        { on: true, type: "highshelf", freq: 10500, gain: 2.1, q: .7 }
+      ],
+      bass: [
+        { on: true, type: "highpass", freq: 38, gain: 0, q: .7 },
+        { on: true, type: "peaking", freq: 78, gain: 3.4, q: .9 },
+        { on: true, type: "peaking", freq: 260, gain: -3.1, q: 1.1 },
+        { on: true, type: "highshelf", freq: 6200, gain: 1, q: .7 }
+      ],
+      mix: [
+        { on: true, type: "lowshelf", freq: 90, gain: 1.2, q: .7 },
+        { on: true, type: "peaking", freq: 380, gain: -1.8, q: 1.2 },
+        { on: true, type: "peaking", freq: 2600, gain: 1.4, q: .9 },
+        { on: true, type: "highshelf", freq: 11800, gain: 1.8, q: .7 }
+      ],
+      air: [
+        { on: true, type: "lowshelf", freq: 120, gain: -1, q: .7 },
+        { on: true, type: "peaking", freq: 700, gain: -.8, q: 1 },
+        { on: true, type: "peaking", freq: 4500, gain: 1.8, q: .85 },
+        { on: true, type: "highshelf", freq: 13000, gain: 4.4, q: .65 }
+      ],
+      deepcut: [
+        { on: true, type: "lowshelf", freq: 120, gain: 8, q: .7 },
+        { on: true, type: "peaking", freq: 500, gain: -12, q: 1.8 },
+        { on: true, type: "peaking", freq: 3000, gain: 9, q: 1.3 },
+        { on: true, type: "highshelf", freq: 9000, gain: 7, q: .7 }
+      ],
+      telephone: [
+        { on: true, type: "highpass", freq: 320, gain: 0, q: 1.1 },
+        { on: true, type: "peaking", freq: 900, gain: 5, q: 1.6 },
+        { on: true, type: "peaking", freq: 2600, gain: 6, q: 1.4 },
+        { on: true, type: "lowpass", freq: 3600, gain: 0, q: 1.1 }
+      ]
+    };
+
+    let bands = JSON.parse(JSON.stringify(presets.flat));
+    let audioContext;
+    let sourceNode;
+    let buffer;
+    let startedAt = 0;
+    let pausedAt = 0;
+    let playing = false;
+    let analyser;
+    let masterGain;
+    let limiter;
+    let filters = [];
+    let dragging = null;
+    let selectedBandIndex = 0;
+    let bypass = false;
+    let limiterOn = true;
+    let monitorStream;
+    let monitorSource;
+    let monitoring = false;
+    let liveDraw = false;
+
+    // ノーマライズ用変数
+    let normalizeOn = false;
+    let normalizeGainNode;
+    let normalizeProcessor;
+    let currentNormalizeGain = 1.0;
+    const targetRMS = 0.15; // ターゲットとなる音量の基準値
+
+    // 【改善】左右の余白（パディング）を設定して文字見切れを防ぐ
+    const GRAPH_PADDING_X = 45; 
+
+    const graph = document.getElementById("graph");
+    const ctx = graph.getContext("2d");
+    const bandPanel = document.getElementById("bands");
+    const readout = document.getElementById("readout");
+    const status = document.getElementById("status");
+    const monitorButton = document.getElementById("monitor");
+    const playButton = document.getElementById("play");
+    const stopButton = document.getElementById("stop");
+    const powerButton = document.getElementById("power");
+    const meterL = document.getElementById("meterL");
+    const meterR = document.getElementById("meterR");
+    const eqSensitivity = document.getElementById("eqSensitivity");
+    const eqSensitivityText = document.getElementById("eqSensitivityText");
+    const limiterToggle = document.getElementById("limiterToggle");
+    const limiterThreshold = document.getElementById("limiterThreshold");
+    const limiterText = document.getElementById("limiterText");
+    const outputGain = document.getElementById("outputGain");
+    const outputText = document.getElementById("outputText");
+    const normalizeToggle = document.getElementById("normalizeToggle");
+
+    function freqToX(freq) {
+      const min = Math.log10(20);
+      const max = Math.log10(20000);
+      const innerWidth = graph.width - (GRAPH_PADDING_X * 2);
+      const pct = (Math.log10(freq) - min) / (max - min);
+      return GRAPH_PADDING_X + (pct * innerWidth);
+    }
+
+    function xToFreq(x) {
+      const min = Math.log10(20);
+      const max = Math.log10(20000);
+      const innerWidth = graph.width - (GRAPH_PADDING_X * 2);
+      const pct = (x - GRAPH_PADDING_X) / innerWidth;
+      const safePct = Math.max(0, Math.min(1, pct));
+      return 10 ** (min + safePct * (max - min));
+    }
+
+    function gainToY(gain) {
+      return graph.height * (.5 - effectiveGain(gain) / 72);
+    }
+
+    function yToGain(y) {
+      const gain = ((.5 - y / graph.height) * 72) / Number(eqSensitivity.value);
+      return Math.max(-30, Math.min(30, gain));
+    }
+
+    function effectiveGain(gain) {
+      return gain * Number(eqSensitivity.value);
+    }
+
+    function dbToGain(db) {
+      return 10 ** (db / 20);
+    }
+
+    function formatFreq(freq) {
+      return freq >= 1000 ? `${(freq / 1000).toFixed(freq < 10000 ? 1 : 0)} kHz` : `${Math.round(freq)} Hz`;
+    }
+
+    function setupCanvas() {
+      const rect = graph.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      graph.width = Math.max(640, Math.round(rect.width * ratio));
+      graph.height = Math.round(rect.height * ratio);
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      draw();
+    }
+
+    function graphSize() {
+      return { w: graph.width / (window.devicePixelRatio || 1), h: graph.height / (window.devicePixelRatio || 1) };
+    }
+
+    function responseAt(freq, band) {
+      if (!band.on) return 0;
+      if (band.type === "highpass") {
+        const ratio = freq / band.freq;
+        return -24 / (1 + ratio ** (band.q * 5));
+      }
+      if (band.type === "lowpass") {
+        const ratio = band.freq / freq;
+        return -24 / (1 + ratio ** (band.q * 5));
+      }
+      if (band.type === "lowshelf") {
+        return effectiveGain(band.gain) / (1 + (freq / band.freq) ** 2);
+      }
+      if (band.type === "highshelf") {
+        return effectiveGain(band.gain) / (1 + (band.freq / freq) ** 2);
+      }
+      const oct = Math.log2(freq / band.freq);
+      return effectiveGain(band.gain) * Math.exp(-0.5 * (oct * band.q * 1.7) ** 2);
+    }
+
+    function drawGrid(w, h) {
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = "#16161a";
+      ctx.fillRect(0, 0, w, h);
+
+      // 細かい背景グリッド
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
+      ctx.lineWidth = 0.5;
+      for(let gx=0; gx<w; gx+=25) {
+        ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke();
+      }
+      for(let gy=0; gy<h; gy+=25) {
+        ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+      }
+
+      // 周波数垂直線線の描画
+      const freqs = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+      ctx.font = "10px -apple-system, sans-serif";
+      ctx.textBaseline = "top";
+      freqs.forEach(freq => {
+        const x = freqToX(freq) / (window.devicePixelRatio || 1);
+        ctx.strokeStyle = freq === 1000 ? "rgba(255, 255, 255, 0.15)" : "rgba(255, 255, 255, 0.05)";
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        
+        ctx.fillStyle = "#8e8e93";
+        ctx.textAlign = (freq === 20) ? "left" : (freq === 20000) ? "right" : "center";
+        const textOffsetX = (freq === 20) ? 4 : (freq === 20000) ? -4 : 0;
+        ctx.fillText(formatFreq(freq), x + textOffsetX, h - 16);
+      });
+
+      // dB水平線の描画
+      [-24, -12, 0, 12, 24].forEach(gain => {
+        const y = h * (.5 - gain / 72);
+        ctx.strokeStyle = gain === 0 ? "rgba(255, 255, 255, 0.2)" : "rgba(255, 255, 255, 0.05)";
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        
+        ctx.fillStyle = gain === 0 ? "#fff" : "#8e8e93";
+        ctx.textAlign = "left";
+        ctx.fillText(`${gain > 0 ? "+" : ""}${gain}dB`, 8, y + 4);
+      });
+    }
+
+    function drawLiveAnalysis(w, h) {
+      if (!analyser || (!monitoring && !playing)) return;
+
+      const spectrum = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(spectrum);
+      ctx.save();
+      
+      // パディング内の描画領域制限
+      const padX = GRAPH_PADDING_X / (window.devicePixelRatio || 1);
+      const innerW = w - (padX * 2);
+
+      // 背景バーアナライザー
+      ctx.globalAlpha = .12;
+      ctx.fillStyle = "#0a84ff";
+      const bars = 64;
+      const step = Math.max(1, Math.floor(spectrum.length / bars));
+      const barWidth = innerW / bars;
+      for (let i = 0; i < bars; i++) {
+        let peak = 0;
+        for (let j = 0; j < step; j++) peak = Math.max(peak, spectrum[i * step + j] || 0);
+        const barHeight = (peak / 255) * h * .5;
+        ctx.fillRect(padX + (i * barWidth), h - barHeight, Math.max(1, barWidth - 1), barHeight);
+      }
+
+      // 波形リアルタイムライン
+      const wave = new Uint8Array(analyser.fftSize);
+      analyser.getByteTimeDomainData(wave);
+      ctx.globalAlpha = .75;
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = "#0a84ff";
+      ctx.beginPath();
+      for (let i = 0; i < wave.length; i++) {
+        const x = padX + (i / (wave.length - 1)) * innerW;
+        const y = h * .5 + ((wave[i] - 128) / 128) * h * .2;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function draw() {
+      const { w, h } = graphSize();
+      drawGrid(w, h);
+      drawLiveAnalysis(w, h);
+
+      const points = [];
+      const pixelWidth = w * (window.devicePixelRatio || 1);
+      for (let i = 0; i <= pixelWidth; i++) {
+        const freq = xToFreq(i);
+        const gain = bands.reduce((sum, band) => sum + responseAt(freq, band), 0);
+        points.push([i / (window.devicePixelRatio || 1), h * (.5 - Math.max(-36, Math.min(36, gain)) / 72)]);
+      }
+
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = bypass ? "#48484a" : "#0a84ff";
+      ctx.beginPath();
+      points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+      ctx.stroke();
+
+      bands.forEach((band, index) => {
+        const x = freqToX(band.freq) / (window.devicePixelRatio || 1);
+        const y = h * (.5 - (band.type.includes("pass") ? 0 : effectiveGain(band.gain)) / 72);
+        
+        ctx.fillStyle = band.on ? colors[index] : "#3a3a3c";
+        
+        if (selectedBandIndex === index && document.activeElement === graph) {
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 3.0;
+        } else {
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+          ctx.lineWidth = 1.5;
+        }
+        
+        ctx.beginPath();
+        const radius = (dragging === index || (selectedBandIndex === index && document.activeElement === graph)) ? 11 : 8;
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.fillStyle = (band.type === "flat" || !band.on) ? "#fff" : "#000";
+        if (!band.on) ctx.fillStyle = "#fff";
+        ctx.font = "600 10px -apple-system, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(index + 1), x, y);
+      });
+    }
+
+    function syncSliders(bandIdx) {
+      const band = bands[bandIdx];
+      const panelGroup = bandPanel.children[bandIdx];
+      if (!panelGroup) return;
+      const fSlider = panelGroup.querySelector(`[data-field="freq"]`);
+      const gSlider = panelGroup.querySelector(`[data-field="gain"]`);
+      if (fSlider) fSlider.value = band.freq;
+      if (gSlider) gSlider.value = band.gain;
+    }
+
+    function renderBands() {
+      bandPanel.innerHTML = "";
+      bands.forEach((band, index) => {
+        const el = document.createElement("article");
+        el.className = "band";
+        el.style.setProperty("--knob-color", colors[index]);
+        el.innerHTML = `
+          <div class="band-head">
+            <div class="band-name">
+              <span class="dot" style="background:${colors[index]}"></span>
+              CH ${index + 1}
+            </div>
+            <button class="band-toggle ${band.on ? "on" : ""}" title="Toggle band" data-band="${index}" data-action="toggle"></button>
+          </div>
+          <div class="type-row">
+            <span>MODE</span>
+            <select data-band="${index}" data-field="type">
+              <option value="highpass">High Pass</option>
+              <option value="lowshelf">Low Shelf</option>
+              <option value="peaking">Peaking</option>
+              <option value="highshelf">High Shelf</option>
+              <option value="lowpass">Low Pass</option>
+            </select>
+          </div>
+          <div class="control-grid">
+            ${sliderMarkup(index, "freq", "FREQ", 20, 20000, band.freq)}
+            ${sliderMarkup(index, "gain", "GAIN", -30, 30, band.gain)}
+            ${sliderMarkup(index, "q", "Q", .2, 12, band.q)}
+          </div>
+        `;
+        bandPanel.appendChild(el);
+        el.querySelector("select").value = band.type;
+      });
+      updateTexts();
+    }
+
+    function sliderMarkup(index, field, label, min, max, value) {
+      const step = field === "freq" ? 1 : .1;
+      return `
+        <div class="knob-cell">
+          <label>${label}</label>
+          <input class="slider" type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-band="${index}" data-field="${field}">
+          <div class="value" id="value-${index}-${field}"></div>
+        </div>
+      `;
+    }
+
+    function updateTexts() {
+      bands.forEach((band, index) => {
+        document.getElementById(`value-${index}-freq`).textContent = formatFreq(band.freq);
+        document.getElementById(`value-${index}-gain`).textContent = band.type.includes("pass") ? "--" : `${band.gain > 0 ? "+" : ""}${band.gain.toFixed(1)} dB`;
+        document.getElementById(`value-${index}-q`).textContent = band.q.toFixed(1);
+      });
+      outputText.textContent = `${Number(outputGain.value).toFixed(1)} dB`;
+      eqSensitivityText.textContent = `x${Number(eqSensitivity.value).toFixed(1)}`;
+      limiterText.textContent = limiterOn ? `${Number(limiterThreshold.value).toFixed(0)} dB` : "Off";
+      readout.innerHTML = bands.map((band, i) => `<span class="pill">CH ${i + 1}: ${band.on ? formatFreq(band.freq) : "Off"}</span>`).join("");
+    }
+
+    function ensureAudio() {
+      if (audioContext) return;
+      audioContext = new AudioContext();
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 1024;
+      masterGain = audioContext.createGain();
+      
+      // ノーマライズ用GainNodeとProcessorの初期化
+      normalizeGainNode = audioContext.createGain();
+      normalizeProcessor = audioContext.createScriptProcessor(2048, 1, 1);
+      normalizeProcessor.onaudioprocess = function(e) {
+        const input = e.inputBuffer.getChannelData(0);
+        if (!normalizeOn) {
+          currentNormalizeGain = 1.0;
+          normalizeGainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
+          return;
+        }
+        let sum = 0;
+        for (let i = 0; i < input.length; i++) {
+          sum += input[i] * input[i];
+        }
+        const rms = Math.sqrt(sum / input.length);
+        if (rms > 0.01) {
+          const targetGain = targetRMS / rms;
+          // 急激な音量変化を防ぐため、滑らかに追従(ローパスフィルタ処理)
+          currentNormalizeGain += (targetGain - currentNormalizeGain) * 0.05;
+          // 極端な増幅をクリップ（最大4倍、最小0.2倍までに制限）
+          currentNormalizeGain = Math.max(0.2, Math.min(4.0, currentNormalizeGain));
+        }
+        normalizeGainNode.gain.setValueAtTime(currentNormalizeGain, audioContext.currentTime);
+      };
+
+      limiter = audioContext.createDynamicsCompressor();
+      limiter.knee.value = 3;
+      limiter.ratio.value = 20;
+      limiter.attack.value = .003;
+      limiter.release.value = .22;
+      
+      // ルーティング構築: masterGain -> normalizeGainNode -> limiter -> analyser -> destination
+      masterGain.connect(normalizeGainNode);
+      normalizeGainNode.connect(limiter);
+      limiter.connect(analyser);
+      analyser.connect(audioContext.destination);
+
+      // 音量解析用にmasterGainからProcessorへも接続
+      masterGain.connect(normalizeProcessor);
+      normalizeProcessor.connect(audioContext.destination);
+
+      applyLimiter();
+      applyOutputGain();
+      rebuildFilters();
+    }
+
+    function rebuildFilters() {
+      if (!audioContext) return;
+      filters = bands.map(band => {
+        const filter = audioContext.createBiquadFilter();
+        filter.type = band.on && !bypass ? band.type : "allpass";
+        filter.frequency.value = band.freq;
+        filter.gain.value = effectiveGain(band.gain);
+        filter.Q.value = band.q;
+        return filter;
+      });
+    }
+
+    function wireSource(node) {
+      if (bypass) {
+        node.connect(masterGain);
+        return;
+      }
+      let current = node;
+      filters.forEach(filter => {
+        current.connect(filter);
+        current = filter;
+      });
+      current.connect(masterGain);
+    }
+
+    function wireMonitorSource(node) {
+      if (bypass) {
+        node.connect(masterGain);
+        return;
+      }
+      let current = node;
+      filters.forEach(filter => {
+        current.connect(filter);
+        current = filter;
+      });
+      current.connect(masterGain);
+    }
+
+    function updateAudioParams() {
+      if (!audioContext || filters.length !== bands.length) return;
+      bands.forEach((band, i) => {
+        const filter = filters[i];
+        filter.type = band.on && !bypass ? band.type : "allpass";
+        filter.frequency.setTargetAtTime(band.freq, audioContext.currentTime, .015);
+        filter.gain.setTargetAtTime(effectiveGain(band.gain), audioContext.currentTime, .015);
+        filter.Q.setTargetAtTime(band.q, audioContext.currentTime, .015);
+      });
+      applyOutputGain();
+    }
+
+    function applyOutputGain() {
+      if (!masterGain || !audioContext) return;
+      masterGain.gain.setTargetAtTime(dbToGain(Number(outputGain.value)), audioContext.currentTime, .01);
+    }
+
+    function applyLimiter() {
+      if (!limiter || !audioContext) return;
+      const now = audioContext.currentTime;
+      limiter.threshold.setTargetAtTime(limiterOn ? Number(limiterThreshold.value) : 0, now, .01);
+      limiter.knee.setTargetAtTime(limiterOn ? 3 : 0, now, .01);
+      limiter.ratio.setTargetAtTime(limiterOn ? 20 : 1, now, .01);
+      limiter.attack.setTargetAtTime(limiterOn ? .003 : .02, now, .01);
+      limiter.release.setTargetAtTime(limiterOn ? .22 : .08, now, .01);
+    }
+
+    async function startMonitor() {
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        status.textContent = "Error: System monitor not supported by this browser.";
+        return;
+      }
+      ensureAudio();
+      stop();
+      try {
+        monitorStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          systemAudio: "include",
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            suppressLocalAudioPlayback: true
+          }
+        });
+      } catch (error) {
+        status.textContent = "Monitoring request cancelled.";
+        return;
+      }
+
+      if (!monitorStream.getAudioTracks().length) {
+        monitorStream.getTracks().forEach(track => track.stop());
+        monitorStream = null;
+        status.textContent = "Error: Check 'Share System Audio'.";
+        return;
+      }
+
+      rebuildFilters();
+      monitorSource = audioContext.createMediaStreamSource(monitorStream);
+      wireMonitorSource(monitorSource);
+      monitoring = true;
+      liveDraw = true;
+      monitorButton.classList.add("active");
+      monitorButton.textContent = "Disconnect";
+      status.textContent = "Monitoring system audio stream...";
+
+      monitorStream.getTracks().forEach(track => {
+        track.addEventListener("ended", stopMonitor, { once: true });
+      });
+    }
+
+    function stopMonitor() {
+      if (monitorSource) {
+        try { monitorSource.disconnect(); } catch (e) {}
+      }
+      if (monitorStream) monitorStream.getTracks().forEach(track => track.stop());
+      monitorSource = null;
+      monitorStream = null;
+      monitoring = false;
+      monitorButton.classList.remove("active");
+      monitorButton.textContent = "Monitor";
+      status.textContent = "Stream disconnected.";
+      try { analyser.connect(audioContext.destination); } catch (e) {}
+      draw();
+    }
+
+    function play() {
+      if (!buffer) {
+        status.textContent = "Please load an audio source file.";
+        return;
+      }
+      ensureAudio();
+      if (monitoring) stopMonitor();
+      try { analyser.connect(audioContext.destination); } catch (e) {}
+      if (playing) {
+        pausedAt = audioContext.currentTime - startedAt;
+        sourceNode.stop();
+        playing = false;
+        playButton.textContent = "Play";
+        return;
+      }
+      sourceNode = audioContext.createBufferSource();
+      sourceNode.buffer = buffer;
+      rebuildFilters();
+      wireSource(sourceNode);
+      sourceNode.start(0, pausedAt % buffer.duration);
+      startedAt = audioContext.currentTime - pausedAt;
+      playing = true;
+      liveDraw = true;
+      playButton.textContent = "Pause";
+      sourceNode.onended = () => {
+        if (playing) stop();
+      };
+    }
+
+    function stop() {
+      if (sourceNode && playing) sourceNode.stop();
+      pausedAt = 0;
+      playing = false;
+      playButton.textContent = "Play";
+    }
+
+    function liveVisualLoop() {
+      if (liveDraw && analyser && (monitoring || playing)) draw();
+      requestAnimationFrame(liveVisualLoop);
+    }
+
+    function meterLoop() {
+      if (analyser) {
+        const data = new Uint8Array(analyser.fftSize);
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for (const value of data) {
+          const centered = (value - 128) / 128;
+          sum += centered * centered;
+        }
+        const rms = Math.sqrt(sum / data.length);
+        
+        const isClipping = (rms > 0.354); 
+
+        const pct = Math.min(100, rms * 185);
+        
+        if (isClipping) {
+          meterL.classList.add("clip");
+          meterR.classList.add("clip");
+        } else {
+          meterL.classList.remove("clip");
+          meterR.classList.remove("clip");
+        }
+
+        if (window.matchMedia("(max-width: 860px)").matches) {
+          meterL.style.width = `${pct}%`;
+          meterR.style.width = `${Math.max(0, pct - 4)}%`;
+          meterL.style.height = "auto";
+          meterR.style.height = "auto";
+        } else {
+          meterL.style.height = `${pct}%`;
+          meterR.style.height = `${Math.max(0, pct - 4)}%`;
+          meterL.style.width = "auto";
+          meterR.style.width = "auto";
+        }
+      }
+      requestAnimationFrame(meterLoop);
+    }
+
+    bandPanel.addEventListener("input", event => {
+      const target = event.target;
+      const index = Number(target.dataset.band);
+      const field = target.dataset.field;
+      if (!Number.isFinite(index) || !field) return;
+      if (field === "type") bands[index][field] = target.value;
+      else bands[index][field] = Number(target.value);
+      updateTexts();
+      updateAudioParams();
+      draw();
+    });
+
+    bandPanel.addEventListener("click", event => {
+      const button = event.target.closest(".band-toggle");
+      if (!button) return;
+      const index = Number(button.dataset.band);
+      bands[index].on = !bands[index].on;
+      button.classList.toggle("on", bands[index].on);
+      updateAudioParams();
+      draw();
+    });
+
+    document.getElementById("preset").addEventListener("change", event => {
+      bands = JSON.parse(JSON.stringify(presets[event.target.value]));
+      renderBands();
+      updateAudioParams();
+      draw();
+    });
+
+    document.getElementById("file").addEventListener("change", async event => {
+      const file = event.target.files[0];
+      if (!file) return;
+      ensureAudio();
+      stop();
+      const bytes = await file.arrayBuffer();
+      buffer = await audioContext.decodeAudioData(bytes);
+      status.textContent = `Loaded track: ${file.name}`;
+    });
+
+    monitorButton.addEventListener("click", () => {
+      if (monitoring) stopMonitor();
+      else startMonitor();
+    });
+
+    playButton.addEventListener("click", play);
+    stopButton.addEventListener("click", stop);
+    outputGain.addEventListener("input", () => {
+      updateTexts();
+      applyOutputGain();
+    });
+    eqSensitivity.addEventListener("input", () => {
+      updateTexts();
+      updateAudioParams();
+      draw();
+    });
+    limiterThreshold.addEventListener("input", () => {
+      updateTexts();
+      applyLimiter();
+    });
+    limiterToggle.addEventListener("click", () => {
+      limiterOn = !limiterOn;
+      limiterToggle.classList.toggle("active-on", limiterOn);
+      limiterToggle.textContent = limiterOn ? "ON" : "OFF";
+      updateTexts();
+      applyLimiter();
+      status.textContent = limiterOn ? "Limiter safety protection active." : "Limiter bypassed.";
+    });
+    normalizeToggle.addEventListener("click", () => {
+      ensureAudio();
+      normalizeOn = !normalizeOn;
+      normalizeToggle.classList.toggle("active-on", normalizeOn);
+      normalizeToggle.textContent = normalizeOn ? "ON" : "OFF";
+      status.textContent = normalizeOn ? "Auto-Normalize enabled (Targeting stable RMS)." : "Auto-Normalize disabled.";
+    });
+    powerButton.addEventListener("click", () => {
+      bypass = !bypass;
+      powerButton.classList.toggle("off", bypass);
+      status.textContent = bypass ? "EQ Bypassed (Direct Out)." : "DSP Equalizer Engaged.";
+      updateAudioParams();
+      draw();
+    });
+
+    // MOUSE / POINTER EVENT ON GRAPH
+    graph.addEventListener("pointerdown", event => {
+      const rect = graph.getBoundingClientRect();
+      const x = (event.clientX - rect.left) * (graph.width / rect.width);
+      const y = (event.clientY - rect.top) * (graph.height / rect.height);
+      
+      const nearest = bands
+        .map((band, index) => {
+          const bx = freqToX(band.freq);
+          const by = graph.height * (.5 - (band.type.includes("pass") ? 0 : effectiveGain(band.gain)) / 72);
+          return { index, dist: Math.hypot(x - bx, y - by) };
+        })
+        .sort((a, b) => a.dist - b.dist)[0];
+      
+      if (nearest.dist < 45) {
+        dragging = nearest.index;
+        selectedBandIndex = nearest.index;
+        graph.focus();
+        graph.setPointerCapture(event.pointerId);
+        draw();
+      }
+    });
+
+    graph.addEventListener("pointermove", event => {
+      if (dragging === null) return;
+      const rect = graph.getBoundingClientRect();
+      const rawX = (event.clientX - rect.left) * (graph.width / rect.width);
+      const rawY = (event.clientY - rect.top) * (graph.height / rect.height);
+      
+      const band = bands[dragging];
+      band.freq = Math.round(xToFreq(rawX));
+      if (!band.type.includes("pass")) band.gain = Number(yToGain(rawY).toFixed(1));
+      
+      syncSliders(dragging);
+      updateTexts();
+      updateAudioParams();
+      draw();
+    });
+
+    graph.addEventListener("pointerup", event => {
+      dragging = null;
+      graph.releasePointerCapture(event.pointerId);
+      draw();
+    });
+
+    // キーボードの十字キー操作
+    graph.addEventListener("keydown", event => {
+      const band = bands[selectedBandIndex];
+      if (!band) return;
+
+      let stepFreq = 1;
+      let stepGain = 0.1;
+
+      if (event.shiftKey) {
+        stepFreq = 20;
+        stepGain = 1.0;
+      }
+
+      switch (event.key) {
+        case "ArrowLeft":
+          band.freq = Math.max(20, band.freq - stepFreq);
+          event.preventDefault();
+          break;
+        case "ArrowRight":
+          band.freq = Math.min(20000, band.freq + stepFreq);
+          event.preventDefault();
+          break;
+        case "ArrowUp":
+          if (!band.type.includes("pass")) {
+            band.gain = Math.min(30, Number((band.gain + stepGain).toFixed(1)));
+          }
+          event.preventDefault();
+          break;
+        case "ArrowDown":
+          if (!band.type.includes("pass")) {
+            band.max = Math.max(-30, Number((band.gain - stepGain).toFixed(1)));
+            band.gain = Math.max(-30, Number((band.gain - stepGain).toFixed(1)));
+          }
+          event.preventDefault();
+          break;
+        default:
+          return;
+      }
+
+      syncSliders(selectedBandIndex);
+      updateTexts();
+      updateAudioParams();
+      draw();
+    });
+
+    graph.addEventListener("focus", () => draw());
+    graph.addEventListener("blur", () => draw());
+
+    window.addEventListener("resize", setupCanvas);
+    renderBands();
+    setupCanvas();
+    meterLoop();
+    liveVisualLoop();
+  </script>
+</body>
+</html>
